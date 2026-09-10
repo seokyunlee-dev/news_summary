@@ -20,6 +20,17 @@ TITLE_PATTERN = re.compile(
     r'data-nlog-params="\{&#034;rank&#034;:(?P<rank>\d+)[^}]*\}">(?P<title>[^<]+)</a>'
 )
 
+# 네이버 랭킹 페이지의 언론사 노출 순서는 요청마다 바뀜(노출 공정성 로직으로 추정) ->
+# "화면에 먼저 뜨는 언론사"를 집으면 실행할 때마다 완전히 다른 언론사가 나옴.
+# 그래서 주요 언론사를 직접 고정하고 그 언론사의 1위 기사만 뽑는다.
+MAJOR_PRESS_IDS = [
+    "001",  # 연합뉴스
+    "023",  # 조선일보
+    "025",  # 중앙일보
+    "056",  # KBS
+    "055",  # SBS
+]
+
 
 def http_get(url, headers=None):
     req = urllib.request.Request(url, headers=headers or {})
@@ -52,17 +63,23 @@ def http_post_form(url, fields, headers=None):
 
 
 def parse_top_news(page_html, count=5):
-    """언론사별 랭킹 1위 기사를 언론사가 나온 순서대로 최대 count개 추출."""
-    seen_press, articles = set(), []
+    """주요 언론사(MAJOR_PRESS_IDS)의 1위 기사를 우선 추출, 모자라면 다른 언론사로 채움."""
+    rank1_by_press, press_order = {}, []
     for m in TITLE_PATTERN.finditer(page_html):
         if m.group("rank") != "1":
             continue
         url = m.group("url")
         press = url.split("/article/")[1].split("/")[0]
-        if press in seen_press:
+        if press not in rank1_by_press:
+            rank1_by_press[press] = {"title": html.unescape(m.group("title")).strip(), "url": url}
+            press_order.append(press)
+
+    picked, articles = set(), []
+    for press in MAJOR_PRESS_IDS + press_order:
+        if press in picked or press not in rank1_by_press:
             continue
-        seen_press.add(press)
-        articles.append({"title": html.unescape(m.group("title")).strip(), "url": url})
+        picked.add(press)
+        articles.append(rank1_by_press[press])
         if len(articles) >= count:
             break
     return articles
