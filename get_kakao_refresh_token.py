@@ -15,7 +15,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-REST_API_KEY = "여기에_REST_API_키_입력"
+REST_API_KEY = "여기에_REST_API_키_입력"  # 카카오 디벨로퍼스 > 앱 설정 > 앱 키 > REST API 키
 REDIRECT_URI = "http://localhost:8000"
 
 
