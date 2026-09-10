@@ -3,6 +3,7 @@ import html
 import json
 import os
 import re
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -113,9 +114,9 @@ def send_kakao_message(access_token, article, index):
 
 
 def main():
+    dry_run = "--dry-run" in sys.argv
+
     gemini_key = os.environ["GEMINI_API_KEY"]
-    kakao_rest_key = os.environ["KAKAO_REST_API_KEY"]
-    kakao_refresh_token = os.environ["KAKAO_REFRESH_TOKEN"]
 
     articles = fetch_top_news(5)
     if not articles:
@@ -124,6 +125,14 @@ def main():
     for article in articles:
         article["summary"] = summarize(article["title"], article["url"], gemini_key)
 
+    if dry_run:
+        print("=== DRY RUN: 카카오톡 전송 없이 요약만 확인 ===\n")
+        for i, article in enumerate(articles, 1):
+            print(f"{i}. {article['title']}\n{article['summary']}\n{article['url']}\n")
+        return
+
+    kakao_rest_key = os.environ["KAKAO_REST_API_KEY"]
+    kakao_refresh_token = os.environ["KAKAO_REFRESH_TOKEN"]
     access_token = refresh_kakao_access_token(kakao_rest_key, kakao_refresh_token)
 
     for i, article in enumerate(articles, 1):
