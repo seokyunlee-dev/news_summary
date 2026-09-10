@@ -9,7 +9,7 @@ import urllib.parse
 import urllib.request
 
 NAVER_RANKING_URL = "https://news.naver.com/main/ranking/popularDay.naver"
-GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={key}"
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}"
 KAKAO_TOKEN_URL = "https://kauth.kakao.com/oauth/token"
 KAKAO_SEND_URL = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
 KAKAO_TEXT_LIMIT = 200
@@ -27,13 +27,20 @@ def http_get(url, headers=None):
         return resp.read()
 
 
+def _urlopen_json(req):
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"{req.full_url} -> HTTP {e.code}: {e.read().decode('utf-8', 'replace')}") from None
+
+
 def http_post_json(url, payload, headers=None):
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url, data=data, headers={"Content-Type": "application/json", **(headers or {})}
     )
-    with urllib.request.urlopen(req, timeout=20) as resp:
-        return json.loads(resp.read())
+    return _urlopen_json(req)
 
 
 def http_post_form(url, fields, headers=None):
@@ -41,8 +48,7 @@ def http_post_form(url, fields, headers=None):
     req = urllib.request.Request(
         url, data=data, headers={"Content-Type": "application/x-www-form-urlencoded", **(headers or {})}
     )
-    with urllib.request.urlopen(req, timeout=20) as resp:
-        return json.loads(resp.read())
+    return _urlopen_json(req)
 
 
 def parse_top_news(page_html, count=5):
@@ -139,8 +145,8 @@ def main():
         try:
             send_kakao_message(access_token, article, i)
             print(f"[전송완료] {article['title']}")
-        except urllib.error.HTTPError as e:
-            print(f"[전송실패] {article['title']}: {e.read().decode('utf-8', 'replace')}")
+        except RuntimeError as e:
+            print(f"[전송실패] {article['title']}: {e}")
 
 
 if __name__ == "__main__":
